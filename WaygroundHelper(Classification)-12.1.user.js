@@ -1,0 +1,381 @@
+// ==UserScript==
+// @name         Assistente de Estudo com IA (Multi-Kind)
+// @namespace    http://tampermonkey.net/
+// @version      12.1
+// @description  [CORREÇÃO CLASSIFICATION] Reescreve a lógica de clique para se adaptar à interface de dois cliques do Wayground.
+// @author       ThomasOnTraining (com melhorias de Gemini)
+// @match        *://quizizz.com/*
+// @match        *://wayground.com/*
+// @connect      generativelanguage.googleapis.com
+// @grant        GM_xmlhttpRequest
+// @grant        GM_setValue
+// @grant        GM_getValue
+// @run-at       document-start
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    // --- PARTE 1: INTERCEPTADOR (Sem alterações) ---
+    let gameDataHasBeenProcessed = false;
+    const originalFetch = window.fetch;
+    Object.defineProperty(window, 'fetch', {
+        configurable: true, enumerable: true,
+        get() {
+            return async (...args) => {
+                const response = await originalFetch.apply(this, args);
+                const [resource] = args;
+                const url = (typeof resource === 'string') ? resource : resource.url;
+                if (url.includes('/play-api/') && !gameDataHasBeenProcessed) {
+                    try {
+                        const responseClone = response.clone();
+                        const data = await responseClone.json();
+                        if (data?.room?.questions && typeof data.room.questions === 'object' && !Array.isArray(data.room.questions)) {
+                            gameDataHasBeenProcessed = true;
+                            window.dispatchEvent(new CustomEvent('GameDataIntercepted', { detail: data }));
+                        }
+                    } catch (e) {}
+                }
+                return response;
+            };
+        }
+    });
+    const originalXHR_open=XMLHttpRequest.prototype.open;const originalXHR_send=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.open=function(...e){return this._requestURL=e[1],originalXHR_open.apply(this,e)};XMLHttpRequest.prototype.send=function(...e){return this.addEventListener("load",function(){if(this._requestURL&&this._requestURL.includes("/play-api/")&&!gameDataHasBeenProcessed)try{const e=JSON.parse(this.responseText);e?.room?.questions&&"object"==typeof e.room.questions&&!Array.isArray(e.room.questions)&&(gameDataHasBeenProcessed=!0,window.dispatchEvent(new CustomEvent("GameDataIntercepted",{detail:e})))}catch(e){}}),originalXHR_send.apply(this,e)};
+
+    // --- PARTE 2: GUI (Sem alterações) ---
+    let isGUIReady = false;
+    let gameDataForGUI = null;
+
+    window.addEventListener('GameDataIntercepted', function(event) {
+        gameDataForGUI = event.detail;
+        if (isGUIReady) {
+            populateGUI(gameDataForGUI.room.questions);
+        }
+    });
+
+    function createGUI() {
+        isGUIReady = true;
+        const styles = `
+            #qia-panel { position: fixed; top: 20px; right: 20px; width: 380px; max-height: 90vh; background-color: #ffffff;
+                border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+                font-family: Arial, sans-serif; z-index: 99999; display: flex; flex-direction: column;
+                transition: transform 0.3s ease, opacity 0.3s ease; transform-origin: top right; }
+            #qia-panel.qia-minimized { transform: scale(0); opacity: 0; pointer-events: none; }
+            #qia-header { padding: 10px 15px; background-color: #f5f5f5; border-bottom: 1px solid #e0e0e0; cursor: move;
+                display: flex; justify-content: space-between; align-items: center; border-top-left-radius: 12px; border-top-right-radius: 12px; }
+            #qia-header h3 { margin: 0; font-size: 16px; font-weight: 600; color: #333; }
+            #qia-controls button { background: none; border: none; cursor: pointer; font-size: 20px; margin-left: 10px; opacity: 0.7; }
+            #qia-controls button:hover { opacity: 1; }
+            #qia-content { padding: 15px; overflow-y: auto; flex-grow: 1; }
+            .qia-question-item { margin-bottom: 15px; padding: 10px; border: 1px solid #eee; border-radius: 8px; }
+            .qia-question-item p { margin: 5px 0; color: #111; }
+            .qia-question-text { font-weight: bold; }
+            .qia-options-list { list-style: none; padding-left: 15px; font-size: 14px; color: #333; }
+            .qia-options-list b { font-weight: 600; }
+            .qia-ai-button { cursor: pointer; padding: 4px 10px; border: 1px solid #ccc; border-radius: 5px; background-color: #f0f0f0; margin-top: 10px; font-size: 12px; }
+            .qia-ai-button:disabled { cursor: not-allowed; opacity: 0.5; }
+            .qia-ai-response { margin-top: 8px; padding: 8px; border-left: 3px solid #4285F4; background-color: #e8f0fe; font-size: 14px; white-space: pre-wrap; font-weight: bold; color: #174ea6;}
+            #qia-settings { padding: 15px; }
+            #qia-settings label { display: block; margin-bottom: 5px; }
+            #qia-settings input { width: 95%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
+            #qia-settings button { padding: 8px 15px; border-radius: 5px; border: none; cursor: pointer; }
+            #qia-save-key-btn { background-color: #007bff; color: white; }
+            #qia-save-key-btn:hover { background-color: #0056b3; }
+            #qia-status { margin-top: 10px; font-size: 12px; }
+            .qia-autoclick-button { cursor: pointer; padding: 4px 10px; border: 1px solid #28a745; border-radius: 5px; background-color: #28a745; color: white; margin-top: 8px; margin-left: 5px; font-size: 12px; }
+            .qia-autoclick-button:disabled { background-color: #ccc; border-color: #ccc; cursor: not-allowed; }
+        `;
+        const styleSheet = document.createElement("style"); styleSheet.innerText = styles; document.head.appendChild(styleSheet);
+        const panelHTML = `<div id="qia-header"><h3>🧠 Assistente IA (Multi-Kind)</h3><div id="qia-controls"><button id="qia-settings-btn" title="Configurações">⚙️</button><button id="qia-minimize-btn" title="Minimizar">➖</button></div></div><div id="qia-content"><p>Aguardando o início do jogo...</p></div><div id="qia-settings" style="display:none;"><h4>Configurações</h4><label for="qia-api-key">Chave de API do Google Gemini</label><input type="password" id="qia-api-key" placeholder="Sua chave de API aqui..."><button id="qia-save-key-btn">Salvar Chave</button><div id="qia-status"></div><p style="font-size:12px; margin-top:15px;">Obtenha sua chave no <a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a></p></div>`;
+        const panel = document.createElement("div"); panel.id = "qia-panel"; panel.innerHTML = panelHTML; document.body.appendChild(panel);
+        const settingsBtn=document.getElementById('qia-settings-btn'),saveKeyBtn=document.getElementById('qia-save-key-btn'),settingsDiv=document.getElementById('qia-settings'),contentDiv=document.getElementById('qia-content'),apiKeyInput=document.getElementById('qia-api-key'),statusEl=document.getElementById('qia-status');function openSettings(){contentDiv.style.display='none',settingsDiv.style.display='block';const e=GM_getValue("geminiApiKey","");apiKeyInput.value=e,saveKeyBtn.textContent=e?"Trocar Chave":"Salvar Chave"}settingsBtn.addEventListener('click',openSettings),saveKeyBtn.addEventListener('click',()=>{const e=apiKeyInput.value;if(!e||""===e.trim())return statusEl.textContent="Erro: O campo da chave não pode estar vazio.",void(statusEl.style.color="red");GM_setValue("geminiApiKey",e),statusEl.textContent="Chave salva com sucesso!",statusEl.style.color="green",saveKeyBtn.textContent="Trocar Chave",setTimeout(()=>{statusEl.textContent="",settingsDiv.style.display='none',contentDiv.style.display='block'},1500)});const qiaPanel=document.getElementById('qia-panel'),header=document.getElementById('qia-header');let isDragging=!1,offset={x:0,y:0};header.addEventListener('mousedown',e=>{isDragging=!0,offset.x=e.clientX-qiaPanel.offsetLeft,offset.y=e.clientY-qiaPanel.offsetTop}),document.addEventListener('mousemove',e=>{isDragging&&(qiaPanel.style.left=`${e.clientX-offset.x}px`,qiaPanel.style.top=`${e.clientY-offset.y}px`)}),document.addEventListener('mouseup',()=>isDragging=!1),document.getElementById('qia-minimize-btn').addEventListener('click',()=>qiaPanel.classList.toggle('qia-minimized'));
+        if(gameDataForGUI)populateGUI(gameDataForGUI.room.questions);if(!GM_getValue("geminiApiKey",null))openSettings(),statusEl.textContent="Bem-vindo! Por favor, insira sua chave da API para começar.",statusEl.style.color="#db7c00";
+    }
+
+    if (document.readyState === 'loading') { window.addEventListener('DOMContentLoaded', createGUI); } else { createGUI(); }
+
+     function populateGUI(questions) {
+        const contentDiv = document.getElementById('qia-content');
+        if (!contentDiv) return;
+        contentDiv.innerHTML = '<p style="font-weight: bold; margin-bottom: 15px;">Jogo detectado! Pronto para resolver.</p>';
+
+        for (const qId in questions) {
+            const questionInfo = questions[qId];
+            const questionText = getTextFromHTML(questionInfo.structure?.query?.text);
+            const questionKind = questionInfo.structure.kind;
+
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'qia-question-item';
+            let questionHTML = `<p class="qia-question-text">${questionText} (Tipo: ${questionKind})</p>`;
+            let buttonHTML = '';
+
+            switch (questionKind) {
+                case 'MCQ': case 'MSQ':
+                    const mcqOptions = questionInfo.structure.options.map((opt, i) => ({ text: getTextFromHTML(opt.text), index: String.fromCharCode(65 + i) }));
+                    questionHTML += `<ul class="qia-options-list">${mcqOptions.map(opt => `<li>${opt.index}) ${opt.text}</li>`).join('')}</ul>`;
+                    buttonHTML = `<button class="qia-ai-button" data-kind="${questionKind}" data-question="${encodeURIComponent(questionText)}" data-options="${encodeURIComponent(JSON.stringify(mcqOptions.map(o => `${o.index}) ${o.text}`)))}">Resolver com IA 🤖</button>`;
+                    break;
+                case 'MATCH':
+                    const matchItems = questionInfo.structure.options.map(o => getTextFromHTML(o.text));
+                    const matchPrompts = questionInfo.structure.matches.map(p => getTextFromHTML(p.text));
+                    questionHTML += `<ul class="qia-options-list"><b>Itens:</b>${matchItems.map(p => `<li>${p}</li>`).join('')}</ul>`;
+                    questionHTML += `<ul class="qia-options-list"><b>Combinações:</b>${matchPrompts.map(o => `<li>${o}</li>`).join('')}</ul>`;
+                    buttonHTML = `<button class="qia-ai-button" data-kind="MATCH" data-question="${encodeURIComponent(questionText)}" data-items="${encodeURIComponent(JSON.stringify(matchItems))}" data-matches="${encodeURIComponent(JSON.stringify(matchPrompts))}">Resolver com IA 🤖</button>`;
+                    break;
+                case 'CLASSIFICATION':
+                    const classOptions = questionInfo.structure.options.map(o => getTextFromHTML(o.text));
+                    const classTargets = questionInfo.structure.targets.map(t => t.name);
+                    questionHTML += `<ul class="qia-options-list"><b>Opções:</b>${classOptions.map(o => `<li>${o}</li>`).join('')}</ul>`;
+                    questionHTML += `<ul class="qia-options-list"><b>Categorias:</b>${classTargets.map(t => `<li>${t}</li>`).join('')}</ul>`;
+                    buttonHTML = `<button class="qia-ai-button" data-kind="CLASSIFICATION" data-question="${encodeURIComponent(questionText)}" data-options="${encodeURIComponent(JSON.stringify(classOptions))}" data-targets="${encodeURIComponent(JSON.stringify(classTargets))}">Resolver com IA 🤖</button>`;
+                    break;
+                case 'REORDER':
+                    const reorderOptions = questionInfo.structure.options.map(o => getTextFromHTML(o.text));
+                    questionHTML += `<ul class="qia-options-list"><b>Para Ordenar:</b>${reorderOptions.map(o => `<li>${o}</li>`).join('')}</ul>`;
+                    buttonHTML = `<button class="qia-ai-button" data-kind="REORDER" data-question="${encodeURIComponent(questionText)}" data-options="${encodeURIComponent(JSON.stringify(reorderOptions))}">Resolver com IA 🤖</button>`;
+                    break;
+                default: continue;
+            }
+            itemDiv.innerHTML = `${questionHTML}${buttonHTML}<div class="qia-ai-response" style="display:none;"></div>`;
+            contentDiv.appendChild(itemDiv);
+        }
+        contentDiv.querySelectorAll('.qia-ai-button').forEach(button => { button.addEventListener('click', handleSolveClick); });
+    }
+
+    function handleSolveClick(event) {
+        const button = event.target;
+        const responseDiv = button.nextElementSibling;
+        const geminiApiKey = GM_getValue("geminiApiKey", null);
+        const oldAutoClickBtn = button.parentElement.querySelector('.qia-autoclick-button');
+        if (oldAutoClickBtn) oldAutoClickBtn.remove();
+        if (!geminiApiKey) return alert("Por favor, configure sua chave de API do Google Gemini nas configurações (⚙️) primeiro.");
+        button.disabled = true; button.textContent = "Pensando...";
+        responseDiv.style.display = 'block'; responseDiv.textContent = 'Analisando...';
+        getSolutionFromAI(button.dataset, responseDiv, button);
+    }
+
+    // --- PARTE 3: LÓGICA DA IA (Com auto-preenchimento melhorado) ---
+    function getSolutionFromAI(dataset, responseDiv, button) {
+        const geminiApiKey = GM_getValue("geminiApiKey");
+        const { kind, question } = dataset;
+        let prompt = '';
+
+        switch (kind) {
+            case 'MCQ': case 'MSQ':
+                const mcqOptions = JSON.parse(decodeURIComponent(dataset.options));
+                prompt = `Analise a seguinte pergunta de múltipla escolha. Sua tarefa é determinar a alternativa correta. Responda APENAS com a letra e o texto completo da alternativa correta. Se houver mais de uma, liste-as, cada uma em uma nova linha.\n\nPergunta:\n"${decodeURIComponent(question)}"\n\nOpções:\n${mcqOptions.join('\n')}`;
+                break;
+            case 'MATCH':
+                const items = JSON.parse(decodeURIComponent(dataset.items));
+                const matches = JSON.parse(decodeURIComponent(dataset.matches));
+                prompt = `Analise a seguinte pergunta de combinação. Você receberá uma lista de "Itens" e uma lista de "Combinações". Sua tarefa é combinar cada item da primeira lista com sua opção correta da segunda lista. Apresente a resposta como uma lista clara de pares, um por linha, no formato: "Item -> Combinação Correta".\n\nPergunta:\n"${decodeURIComponent(question)}"\n\nItens:\n- ${items.join('\n- ')}\n\nCombinações:\n- ${matches.join('\n- ')}`;
+                break;
+            case 'CLASSIFICATION':
+                const classOptions = JSON.parse(decodeURIComponent(dataset.options));
+                const targets = JSON.parse(decodeURIComponent(dataset.targets));
+                prompt = `Analise a seguinte pergunta de classificação. Sua tarefa é atribuir cada "Opção" à sua "Categoria" correta. Apresente a resposta agrupando as opções sob o nome de cada categoria, um item por linha, começando com "- ". Exemplo:\nCategoria 1:\n- Opção A\n- Opção C\n\nCategoria 2:\n- Opção B\n\nPergunta:\n"${decodeURIComponent(question)}"\n\nOpções:\n- ${classOptions.join('\n- ')}\n\nCategorias:\n- ${targets.join('\n- ')}`;
+                break;
+            case 'REORDER':
+                const reorderOptions = JSON.parse(decodeURIComponent(dataset.options));
+                prompt = `Analise a seguinte pergunta de ordenação. Sua tarefa é colocar a lista de "Itens para Ordenar" na sequência correta. Apresente a resposta como uma lista numerada, começando em 1, na ordem correta.\n\nPergunta:\n"${decodeURIComponent(question)}"\n\nItens para Ordenar:\n- ${reorderOptions.join('\n- ')}`;
+                break;
+        }
+
+        GM_xmlhttpRequest({
+            method: 'POST',
+            url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiApiKey}`,
+            headers: { 'Content-Type': 'application/json' },
+            data: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+            onload: function(response) {
+                try {
+                    if (response.status === 200) {
+                        const responseData = JSON.parse(response.responseText);
+                        const aiResponseText = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if (aiResponseText) {
+                            responseDiv.innerHTML = "✔️<br>" + aiResponseText.replace(/\n/g, '<br>');
+
+                            const autoButton = document.createElement('button');
+                            autoButton.className = 'qia-autoclick-button';
+                            responseDiv.appendChild(autoButton);
+
+                            if (kind === 'MCQ' || kind === 'MSQ') {
+                                autoButton.textContent = '➡️ Clicar na Resposta';
+                                autoButton.addEventListener('click', () => handleMCQClick(aiResponseText, autoButton));
+                            } else if (kind === 'MATCH' || kind === 'CLASSIFICATION') {
+                                autoButton.textContent = '➡️ Auto-Preencher';
+                                autoButton.addEventListener('click', () => handleComplexClick(aiResponseText, kind, autoButton, dataset));
+                            } else {
+                                autoButton.remove();
+                            }
+                        } else {
+                            responseDiv.textContent = 'Erro: A IA não retornou uma resposta válida.';
+                        }
+                    } else {
+                        responseDiv.textContent = `Erro: ${response.status}.`;
+                    }
+                } catch (e) {
+                     responseDiv.textContent = 'Erro ao processar a resposta da IA.';
+                     console.error("Erro no parsing da IA:", e);
+                }
+                button.disabled = false; button.textContent = "Resolver com IA 🤖";
+            },
+            onerror: (error) => {
+                responseDiv.textContent = 'Erro de rede.';
+                button.disabled = false; button.textContent = "Resolver com IA 🤖";
+                console.error("Erro na requisição para a IA:", error);
+            }
+        });
+    }
+
+    function getTextFromHTML(htmlString) {
+        if (!htmlString) return "";
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = htmlString;
+        return tempDiv.textContent.trim() || tempDiv.innerText.trim() || "";
+    }
+
+    // --- FUNÇÕES DE AUTO-PREENCHIMENTO (REESCRITAS E MELHORADAS) ---
+
+    function findClickableElementByText(text) {
+        const searchText = text.trim();
+        const optionElements = document.querySelectorAll('.option-inner, .option');
+        for (const el of optionElements) {
+            const p = el.querySelector('p');
+            if (p && p.textContent.trim().includes(searchText)) {
+                return el;
+            }
+        }
+        console.warn(`Elemento com texto "${text}" não foi encontrado.`);
+        return null;
+    }
+
+    function findMatchElementByText(text, elementType) {
+        const searchText = text.trim();
+        const elements = document.querySelectorAll('.match-order-option');
+        for (const el of elements) {
+            const isDestination = el.classList.contains('is-drop-tile');
+            const isSource = el.classList.contains('is-option-tile');
+            if ((elementType === 'destination' && !isDestination) || (elementType === 'source' && !isSource)) {
+                continue;
+            }
+            const textElement = el.querySelector('.resizeable p');
+            if (textElement && textElement.textContent.trim() === searchText) {
+                const clickablePart = el.querySelector('button.match-order-option-inner');
+                return clickablePart || el;
+            }
+        }
+        console.warn(`[MATCH] Elemento com texto "${text}" (${elementType}) não foi encontrado.`);
+        return null;
+    }
+
+    function findClassificationElementByText(text) {
+        const searchText = text.trim();
+        const elements = document.querySelectorAll('.classification-group .cursor-grab');
+        for (const el of elements) {
+            const textElement = el.querySelector('.resizeable p');
+            if (textElement && textElement.textContent.trim().includes(searchText)) {
+                return el;
+            }
+        }
+        console.warn(`[CLASSIFICATION] Elemento de origem com texto "${text}" não foi encontrado.`);
+        return null;
+    }
+
+    function handleMCQClick(aiResponseText, button) {
+        button.disabled = true;
+        const cleanAnswerText = aiResponseText.substring(aiResponseText.indexOf(')') + 1).trim();
+        const targetElement = findClickableElementByText(cleanAnswerText);
+        if (targetElement) {
+            targetElement.click();
+            button.textContent = 'Clicado!';
+        } else {
+            button.textContent = 'Não encontrado!';
+            button.style.backgroundColor = '#dc3545';
+        }
+    }
+
+    async function handleComplexClick(aiResponseText, kind, button, dataset) {
+        button.disabled = true;
+        button.textContent = 'Preenchendo...';
+        const panel = document.getElementById('qia-panel');
+        let pairs = [];
+
+        if (kind === 'MATCH') {
+            pairs = aiResponseText.split('\n').map(line => {
+                const separator = line.includes('->') ? '->' : '-';
+                const parts = line.split(separator);
+                if (parts.length === 2) {
+                    return { source: parts[0].replace(/^-/, '').trim(), destination: parts[1].trim() };
+                }
+                return null;
+            }).filter(Boolean);
+        } else if (kind === 'CLASSIFICATION') {
+            const lines = aiResponseText.split('\n').filter(line => line.trim() !== '');
+            let currentCategory = '';
+            for (const line of lines) {
+                if (line.endsWith(':')) {
+                    currentCategory = line.slice(0, -1).trim();
+                } else if (line.startsWith('- ') && currentCategory) {
+                    pairs.push({ source: line.substring(2).trim(), destination: currentCategory });
+                }
+            }
+        }
+
+        if (pairs.length === 0) {
+            button.textContent = 'Falha ao analisar!';
+            button.style.backgroundColor = '#dc3545';
+            if (panel) panel.classList.remove('qia-minimized');
+            return;
+        }
+
+        if (panel) panel.classList.add('qia-minimized');
+        await new Promise(resolve => setTimeout(resolve, 400));
+
+        try {
+            let successCount = 0;
+            if (kind === 'MATCH') {
+                for (const pair of pairs) {
+                    const sourceEl = findMatchElementByText(pair.source, 'source');
+                    if (!sourceEl) { console.error(`Item de origem não encontrado: "${pair.source}"`); continue; }
+                    sourceEl.click();
+                    await new Promise(resolve => setTimeout(resolve, 300));
+
+                    const destEl = findMatchElementByText(pair.destination, 'destination');
+                    if (!destEl) { console.error(`Destino não encontrado: "${pair.destination}"`); sourceEl.click(); await new Promise(resolve => setTimeout(resolve, 200)); continue; }
+                    destEl.click();
+                    successCount++;
+                    await new Promise(resolve => setTimeout(resolve, 600));
+                }
+            } else if (kind === 'CLASSIFICATION') {
+                const targets = JSON.parse(decodeURIComponent(dataset.targets));
+                if (!targets) { throw new Error("Categorias de destino não encontradas no dataset."); }
+
+                for (const pair of pairs) {
+                    const sourceEl = findClassificationElementByText(pair.source);
+                    if (!sourceEl) { console.error(`Item de origem não encontrado: "${pair.source}"`); continue; }
+                    sourceEl.click();
+                    await new Promise(resolve => setTimeout(resolve, 300));
+
+                    const destIndex = targets.indexOf(pair.destination);
+                    if (destIndex === -1) { console.error(`Categoria de destino não encontrada no dataset: "${pair.destination}"`); sourceEl.click(); continue; }
+
+                    const dropzones = document.querySelectorAll('.glowing-dropzone');
+                    const destEl = dropzones[destIndex];
+
+                    if (!destEl) { console.error(`Dropzone de destino no índice ${destIndex} não encontrado na tela.`); sourceEl.click(); continue; }
+                    destEl.click();
+                    successCount++;
+                    await new Promise(resolve => setTimeout(resolve, 600));
+                }
+            }
+
+            button.textContent = `Concluído (${successCount}/${pairs.length})`;
+            if (successCount < pairs.length) {
+                button.style.backgroundColor = '#ffc107';
+            }
+        } finally {
+            if (panel) panel.classList.remove('qia-minimized');
+        }
+    }
+
+})();
