@@ -22,15 +22,16 @@ Função | Descrição
 
 <hr>
 <h2>🧠 Como usar</h2>
-<p>1️⃣ Entre em <strong>wayground.com/join</strong> e inicie um jogo normalmente<br>
+<p>1️⃣ Acesse <strong>wayground.com</strong> e escolha o jogo que deseja fazer<br>
 2️⃣ Antes do quiz começar, clique no <strong>bookmarklet do Tyzziz</strong><br>
 3️⃣ O painel vai aparecer automaticamente<br>
-4️⃣ Para cada pergunta:</p>
+4️⃣ Inicie o quiz normalmente<br> 
+5️⃣ Para cada pergunta:</p>
 <ul>
     <li>Clique em <strong>Resolver com IA 🤖</strong></li>
     <li>A resposta correta aparecerá abaixo</li>
 </ul>
-<p>5️⃣ Para jogar no automático → ative o 🚀 <strong>Piloto Automático</strong></p>
+<p>6️⃣ Para jogar no automático → ative o 🚀 <strong>Piloto Automático</strong></p>
 
 <p>💻 Funcionando nos principais navegadores de PC e modo navegador em CELULARES</p>
 <hr>
