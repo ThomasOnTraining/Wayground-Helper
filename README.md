@@ -37,7 +37,7 @@ Função | Descrição
 <h2>⭐ Instalação — Via Bookmarklet</h2>
 <p>Acesse as Releases para encontrar a versão mais atual do script</p>
 <p>Nas versões tem o tutorial de como colocar o script no seu dispositivo</p>
-<p><em><a href="https://github.com/ThomasOnTraining/Wayground-Helper/releases/tag/Tyzziz2.0" target="_blank">Clique aqui para acessar as Versões do Tyzziz</a></em></p>
+<p><em><a href="https://github.com/ThomasOnTraining/Wayground-Helper/releases" target="_blank">Clique aqui para acessar as Versões do Tyzziz</a></em></p>
 
 <hr>
 <h2>💬 Sugestões &amp; Suporte</h2>
