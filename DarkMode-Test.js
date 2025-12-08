@@ -2,7 +2,7 @@
     'use strict';
 
     // ##################################################################
-    // #               URL DO SEU WORKER CONFIGURADA                    #
+    // #               URL DO SEU WORKER CONFIGURADA                    #
     // ##################################################################
     const PROXY_URL = "https://api-banco.pintoassado390.workers.dev";
     // ##################################################################
@@ -42,7 +42,7 @@
     const originalXHR_open=XMLHttpRequest.prototype.open;const originalXHR_send=XMLHttpRequest.prototype.send;XMLHttpRequest.prototype.open=function(...e){return this._requestURL=e[1],originalXHR_open.apply(this,e)};XMLHttpRequest.prototype.send=function(...e){return this.addEventListener("load",function(){if(this._requestURL&&this._requestURL.includes("/play-api/")){try{const e=JSON.parse(this.responseText);e?.room?.questions&&"object"==typeof e.room.questions&&!Array.isArray(e.room.questions)&&!gameDataHasBeenProcessed&&(gameDataHasBeenProcessed=!0,window.dispatchEvent(new CustomEvent("GameDataIntercepted",{detail:e})))}catch(e){}(this._requestURL.includes("/playerGameOver")||this._requestURL.includes("/player-summary"))&&window.dispatchEvent(new CustomEvent("GameEnded"))}}),originalXHR_send.apply(this,e)};
 
 
-    // --- (PARTE 2: GUI - Sem alterações) ---
+    // --- (PARTE 2: GUI - Modo Escuro Aplicado nas Estilizações) ---
     let isGUIReady = false;
     let gameDataForGUI = null;
     let currentActiveQuestionText = "";
@@ -56,36 +56,61 @@
     function createGUI() {
         isGUIReady = true;
         const styles = `
-            #qia-panel { position: fixed; top: 20px; right: 20px; width: 380px; max-height: 90vh; background-color: #ffffff;
-                border: 1px solid #e0e0e0; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            #qia-panel { position: fixed; top: 20px; right: 20px; width: 380px; max-height: 90vh; 
+                /* MODO ESCURO: Fundo do Painel */
+                background-color: #2c2c2c; 
+                border: 1px solid #444444; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
                 font-family: Arial, sans-serif; z-index: 9999; display: flex; flex-direction: column;
                 transition: width 0.3s ease, height 0.3s ease, border-radius 0.3s ease, opacity 0.3s ease;
-                transform-origin: top right; overflow: hidden; }
+                transform-origin: top right; overflow: hidden; color: #f0f0f0; } /* MODO ESCURO: Cor do Texto */
             #qia-panel.qia-minimized { width: 50px; height: 50px; border-radius: 50%; opacity: 1; pointer-events: auto; }
             #qia-panel.qia-minimized #qia-header, #qia-panel.qia-minimized #qia-content { display: none; }
-            #qia-header { padding: 10px 15px; background-color: #f5f5f5; border-bottom: 1px solid #e0e0e0; cursor: move;
+            #qia-header { padding: 10px 15px; 
+                /* MODO ESCURO: Fundo do Cabeçalho */
+                background-color: #3a3a3a; 
+                border-bottom: 1px solid #444444; cursor: move;
                 display: flex; justify-content: space-between; align-items: center; border-top-left-radius: 12px; border-top-right-radius: 12px; flex-shrink: 0; }
-            #qia-header h3 { margin: 0; font-size: 16px; font-weight: 600; color: #333; }
+            #qia-header h3 { margin: 0; font-size: 16px; font-weight: 600; 
+                /* MODO ESCURO: Cor do Título */
+                color: #ffffff; }
             #qia-controls { display: flex; align-items: center; }
-            #qia-controls button, #qia-controls label { background: none; border: none; cursor: pointer; font-size: 20px; margin-left: 10px; opacity: 0.7; padding: 0 5px; }
+            #qia-controls button, #qia-controls label { background: none; border: none; cursor: pointer; font-size: 20px; margin-left: 10px; opacity: 0.7; padding: 0 5px; 
+                /* MODO ESCURO: Cor do Ícone */
+                color: #f0f0f0; } 
             #qia-controls button:hover, #qia-controls label:hover { opacity: 1; }
             #qia-controls input[type="checkbox"] { display: none; }
             #qia-controls input[type="checkbox"] + label { font-size: 22px; line-height: 1; user-select: none; }
-            #qia-controls input[type="checkbox"]:checked + label { opacity: 1; filter: saturate(2); background-color: #e0e8ff; border-radius: 4px; }
-            #qia-auto-mode-btn.qia-auto-mode-on { opacity: 1; filter: saturate(2); background-color: #e0ffe8; border-radius: 4px; }
+            #qia-controls input[type="checkbox"]:checked + label { opacity: 1; filter: saturate(2); background-color: #424e62; border-radius: 4px; } /* Cor do foco azul-escuro */
+            #qia-auto-mode-btn.qia-auto-mode-on { opacity: 1; filter: saturate(2); background-color: #2b573a; border-radius: 4px; } /* Cor do foco verde-escuro */
             #qia-content { padding: 15px; overflow-y: auto; flex-grow: 1; }
             #qia-restore-btn-circle { display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-size: 28px; cursor: move; user-select: none; }
             #qia-panel.qia-minimized #qia-restore-btn-circle { display: flex; }
-            .qia-question-item { margin-bottom: 15px; padding: 10px; border: 1px solid #eee; border-radius: 8px; transition: border 0.3s ease, background-color 0.3s ease; }
-            .qia-question-item.qia-focused { border: 2px solid #4285F4; background-color: #f8f9fa; }
-            .qia-question-item p { margin: 5px 0; color: #111; }
+            .qia-question-item { margin-bottom: 15px; padding: 10px; 
+                /* MODO ESCURO: Borda e Fundo do Item */
+                border: 1px solid #444; background-color: #333333; 
+                border-radius: 8px; transition: border 0.3s ease, background-color 0.3s ease; }
+            .qia-question-item.qia-focused { 
+                /* MODO ESCURO: Foco no Item */
+                border: 2px solid #5d9cec; background-color: #3e3e3e; } 
+            .qia-question-item p { margin: 5px 0; 
+                /* MODO ESCURO: Cor do Texto */
+                color: #f0f0f0; } 
             .qia-question-text { font-weight: bold; }
-            .qia-options-list { list-style: none; padding-left: 15px; font-size: 14px; color: #333; }
+            .qia-options-list { list-style: none; padding-left: 15px; font-size: 14px; 
+                /* MODO ESCURO: Cor do Texto da Lista */
+                color: #cccccc; } 
             .qia-options-list b { font-weight: 600; }
-            .qia-ai-button { cursor: pointer; padding: 4px 10px; border: 1px solid #ccc; border-radius: 5px; background-color: #f0f0f0; margin-top: 10px; font-size: 12px; }
+            .qia-ai-button { cursor: pointer; padding: 4px 10px; 
+                /* MODO ESCURO: Botão AI */
+                border: 1px solid #555; border-radius: 5px; background-color: #555555; color: #ffffff; 
+                margin-top: 10px; font-size: 12px; }
             .qia-ai-button:disabled { cursor: not-allowed; opacity: 0.5; }
-            .qia-ai-response { margin-top: 8px; padding: 8px; border-left: 3px solid #4285F4; background-color: #e8f0fe; font-size: 14px; white-space: pre-wrap; font-weight: bold; color: #174ea6;}
-            .qia-autoclick-button { cursor: pointer; padding: 4px 10px; border: 1px solid #28a745; border-radius: 5px; background-color: #28a745; color: white; margin-top: 8px; margin-left: 5px; font-size: 12px; }
+            .qia-ai-response { margin-top: 8px; padding: 8px; 
+                /* MODO ESCURO: Resposta AI */
+                border-left: 3px solid #5d9cec; background-color: #3a4b67; font-size: 14px; white-space: pre-wrap; font-weight: bold; color: #ffffff;} 
+            .qia-autoclick-button { cursor: pointer; padding: 4px 10px; border: 1px solid #28a745; border-radius: 5px; 
+                /* MODO ESCURO: Botão Auto-Click */
+                background-color: #28a745; color: white; margin-top: 8px; margin-left: 5px; font-size: 12px; }
             .qia-autoclick-button:disabled { background-color: #ccc; border-color: #ccc; cursor: not-allowed; }
         `;
         const styleSheet = document.createElement("style"); styleSheet.innerText = styles; document.head.appendChild(styleSheet);
@@ -313,7 +338,7 @@
                 const reorderOptions = JSON.parse(decodeURIComponent(dataset.options));
                 prompt = `Analise a seguinte pergunta de ordenação. Se uma imagem for fornecida (como contexto), use-a como fonte principal. Sua tarefa é colocar a lista de "Itens para Ordenar" na sequência correta. Responda APENAS com uma lista numerada, começando em 1, na ordem correta.\n\nPergunta:\n"${decodeURIComponent(question)}"\n\nItens para Ordenar:\n- ${reorderOptions.join('\n- ')}`;
                 break;
-                
+            
             case 'BLANK':
                 prompt = `Analise a seguinte pergunta de PREENCHER A LACUNA (BLANK). Se uma imagem for fornecida, use-a como fonte principal. Sua tarefa é fornecer a resposta mais curta e direta possível. Responda APENAS com o texto ou número que deve ser preenchido, usando NO MÁXIMO 5 PALAVRAS. NÃO inclua pontuação extra.\n\nPergunta:\n"${decodeURIComponent(question)}"`;
                 break;
@@ -326,8 +351,8 @@
     }
 
     // ##################################################################
-    // #                     FUNÇÃO MODIFICADA                          #
-    // #               MUDANÇA DE MODELO AQUI                           #
+    // #                     FUNÇÃO MODIFICADA                          #
+    // #               MUDANÇA DE MODELO AQUI                           #
     // ##################################################################
     async function performProxyRequest(prompt, responseDiv, button, dataset) {
         
@@ -369,7 +394,7 @@
         }
     }
     // ##################################################################
-    // #                     FIM DA MODIFICAÇÃO                       #
+    // #                     FIM DA MODIFICAÇÃO                       #
     // ##################################################################
 
 
@@ -484,7 +509,7 @@
 
 
     function handleAISuccess(responseText, responseDiv, button, dataset) {
-         try {
+          try {
             const responseData = JSON.parse(responseText);
             const aiResponseText = responseData.choices[0].message.content;
             if (aiResponseText) {
@@ -527,10 +552,10 @@
         cleaned = cleaned.replace(/[\u2010\u2011\u2012\u2013\u2014\u2015]/g, '-');
         
         return cleaned.replace(/\s+/g, ' ') // 3. Substitui múltiplos espaços por um
-                   .trim()
-                   .replace(/(\.\.\.|\u2026)$/, '') // 4. Remove reticências finais
-                   .replace(/\.$/, '') // 5. Remove ponto final final
-                   .trim();
+                       .trim()
+                       .replace(/(\.\.\.|\u2026)$/, '') // 4. Remove reticências finais
+                       .replace(/\.$/, '') // 5. Remove ponto final final
+                       .trim();
     }
     // --- FIM cleanElementText CORRIGIDA ---
     
