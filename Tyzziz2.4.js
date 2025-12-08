@@ -287,7 +287,7 @@
         switch (kind) {
             case 'MCQ':
                 const mcqOptions = JSON.parse(decodeURIComponent(dataset.options));
-                prompt = `Analise a seguinte pergunta de MÚLTIPLA ESCOLHA (MCQ). Se uma imagem for fornecida (como contexto), use-a como fonte principal. Esta pergunta tem APENAS UMA resposta correta. Responda APENAS com a letra e o texto completo dessa alternativa.\n\nPergunta:\n"${decodeURIComponent(question)}"\n\nOpções:\n${mcqOptions.join('\n')}`;
+                prompt = `Analise a seguinte pergunta de MÚLTIPLA ESCOLHA (MCQ). Se uma imagem for fornecida (como contexto), use-a como fonte principal. Esta pergunta tem APENAS UMA resposta correta. Responda APENAS com a letra e o texto completo dessa alternativa. NÃO inclua nenhuma outra opção, introdução, observação ou texto explicativo.\n\nPergunta:\n"${decodeURIComponent(question)}"\n\nOpções:\n${mcqOptions.join('\n')}`;
                 break;
             case 'MSQ':
                 const msqOptions = JSON.parse(decodeURIComponent(dataset.options));
@@ -319,9 +319,9 @@
                 prompt = `Analise a seguinte pergunta de PREENCHER A LACUNA (BLANK). Se uma imagem for fornecida, use-a como fonte principal. Sua tarefa é fornecer a resposta mais curta e direta possível. Responda APENAS com o texto ou número que deve ser preenchido, usando NO MÁXIMO 5 PALAVRAS. NÃO inclua pontuação extra.\n\nPergunta:\n"${decodeURIComponent(question)}"`;
                 break;
 
-            // MUDANÇA: Prompt para OPEN (Resumido e informal)
+            // MUDANÇA FINAL: Prompt para OPEN (Resumido, informal, sem travessões)
             case 'OPEN':
-                prompt = `Responda a seguinte pergunta de forma resumida, direta e com tom natural, como se fosse um colega. Crie uma resposta concisa, de 1 a 3 frases. Responda APENAS com o texto da resposta.\n\nPergunta:\n"${decodeURIComponent(question)}"`;
+                prompt = `Responda a seguinte pergunta de forma resumida, direta e com tom natural, como se fosse um colega. Crie uma resposta concisa, de 1 a 3 frases. IMPORTANTE: Use apenas pontuação padrão (vírgulas, pontos finais). NÃO use hífens, travessões (—) ou barras para listar ou separar ideias. Responda APENAS com o texto da resposta.\n\nPergunta:\n"${decodeURIComponent(question)}"`;
                 break;
         }
         return prompt;
@@ -482,7 +482,7 @@
     function findMatchElementByText(text, elementType) { const searchText = text.trim(); const elements = document.querySelectorAll('.match-order-option'); for (const el of elements) { const isDestination = el.classList.contains('is-drop-tile'); const isSource = el.classList.contains('is-option-tile'); if ((elementType === 'destination' && !isDestination) || (elementType === 'source' && !isSource)) continue; const textElement = el.querySelector('div[id="optionText"]'); if (textElement) { const elementText = cleanElementText(textElement.textContent); if (elementText && (searchText.startsWith(elementText) || elementText.startsWith(searchText))) { return el.querySelector('button.match-order-option-inner') || el; } } } console.warn(`[MATCH] Elemento com texto "${text}" (${elementType}) não foi encontrado.`); return null; }
     function findClassificationElementByText(text) { const searchText = text.trim(); const elements = document.querySelectorAll('.classification-group .cursor-grab'); for (const el of elements) { const textElement = el.querySelector('div[id="optionText"]'); if (textElement) { const elementText = cleanElementText(textElement.textContent); if (elementText && (searchText.startsWith(elementText) || elementText.startsWith(searchText))) { return el; } } } console.warn(`[CLASSIFICATION] Elemento de origem com texto "${text}" não foi encontrado.`); return null; }
     function findDropdownPlaceholder(index) { const placeholders = document.querySelectorAll('button.options-dropdown'); if (placeholders.length > index) { return placeholders[index]; } console.warn(`[DROPDOWN] Placeholder no índice ${index} não foi encontrado.`); return null; }
-    function findDropdownOption(text) { const options = document.querySelectorAll('button.dropdown-option'); for (const option of options) { const textElement = option.querySelector('.resizeable'); if (textElement && textElement.textContent.trim().includes(text)) { return option; } } console.warn(`[DROPDOWN] Opção com texto "${text}" não foi encontrado.`); return null; }
+    function findDropdownOption(text) { const options = document.querySelectorAll('button.dropdown-option'); for (const option of options) { const textElement = option.querySelector('.resizeable'); if (textElement && textElement.textContent.trim().includes(text)) { return option; } } console.warn(`[DROPDOWN] Opção com texto "${text}" não foi encontrada.`); return null; }
     async function handleMCQClick(aiResponseText, button) { button.disabled = true; const answers = aiResponseText.split('\n').filter(Boolean); let clickedCount = 0; for (const answer of answers) { const cleanAnswerText = cleanElementText(answer.substring(answer.indexOf(')') + 1)); if (!cleanAnswerText) continue; const targetElement = findClickableElementByText(cleanAnswerText); if (targetElement) { targetElement.click(); clickedCount++; await new Promise(resolve => setTimeout(resolve, 300)); } } if (clickedCount === answers.length && answers.length > 0) { button.textContent = 'Clicado!'; } else if (clickedCount > 0) { button.textContent = `Clicado (${clickedCount}/${answers.length})`; button.style.backgroundColor = '#ffc107'; } else { button.textContent = 'Não encontrado!'; button.style.backgroundColor = '#dc3545'; } }
     async function handleComplexClick(aiResponseText, kind, button, dataset) {
         button.disabled = true; button.textContent = 'Preenchendo...'; const panel = document.getElementById('qia-panel'); let pairs = [];
