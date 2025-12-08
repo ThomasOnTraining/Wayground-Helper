@@ -91,7 +91,7 @@
         const styleSheet = document.createElement("style"); styleSheet.innerText = styles; document.head.appendChild(styleSheet);
         const panelHTML = `
             <div id="qia-header">
-                <h3>🧠 Tyzziz 2.0</h3>
+                <h3>🧠 Tyzziz 2.1</h3>
                 <div id="qia-controls">
                     <button id="qia-auto-mode-btn" title="Piloto Automático">🚀</button>
                     <button id="qia-reload-btn" title="Resetar (Detectar Novo Jogo)">🔄</button>
