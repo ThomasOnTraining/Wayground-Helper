@@ -1612,10 +1612,10 @@ ${targetsInfo}`;
 
     // Encontra alvo pelo ID do target (usado quando temos o ID do JSON)
     function findDndImageTargetById(targetId) {
-        // Busca pelo ID direto ou pelo data-cy
-        const target = document.querySelector(`button#${targetId}`) ||
+        // Usar [id="xxx"] ao invés de #xxx porque IDs que começam com número não funcionam com #
+        const target = document.querySelector(`button[id="${targetId}"]`) ||
             document.querySelector(`button[data-cy="droppable-blank-${targetId}"]`) ||
-            document.querySelector(`button[id="${targetId}"]`);
+            document.querySelector(`[id="${targetId}"]`);
         if (target) { return target; }
         console.warn(`[DND_IMAGE] Alvo com ID "${targetId}" não foi encontrado.`);
         return null;
