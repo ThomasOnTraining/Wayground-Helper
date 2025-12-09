@@ -1639,14 +1639,31 @@ ${targetsInfo}`;
     // Encontra a tecla do atalho de teclado pelo texto da opção
     function findDndImageKeyByText(text) {
         const searchText = cleanElementText(text);
+        console.log(`[DND_IMAGE DEBUG] Procurando tecla para: "${searchText}"`);
+
         // Seletor: .drag-option-dnd-image com texto e atalho de teclado
         const elements = document.querySelectorAll('.drag-option-dnd-image');
+        console.log(`[DND_IMAGE DEBUG] Encontrados ${elements.length} elementos .drag-option-dnd-image`);
+
         for (const el of elements) {
             const textElement = el.querySelector('.dnd-image-options-text p, p');
-            if (textElement && cleanElementText(textElement.textContent) === searchText) {
-                const keyElement = el.querySelector('.keyboard-interaction-shortcuts');
-                if (keyElement) {
-                    return keyElement.textContent.trim();
+            if (textElement) {
+                const elementText = cleanElementText(textElement.textContent);
+                console.log(`[DND_IMAGE DEBUG] Comparando: "${elementText}" com "${searchText}"`);
+
+                // Comparação flexível: exato, startsWith ou includes
+                if (elementText === searchText ||
+                    elementText.startsWith(searchText) ||
+                    searchText.startsWith(elementText) ||
+                    elementText.includes(searchText) ||
+                    searchText.includes(elementText)) {
+
+                    const keyElement = el.querySelector('.keyboard-interaction-shortcuts');
+                    if (keyElement) {
+                        const key = keyElement.textContent.trim();
+                        console.log(`[DND_IMAGE DEBUG] ✅ Encontrada tecla: "${key}"`);
+                        return key;
+                    }
                 }
             }
         }
