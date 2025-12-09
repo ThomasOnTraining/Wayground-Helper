@@ -1656,7 +1656,7 @@ ${targetsInfo}`;
             else if (kind === 'DROPDOWN') { for (const item of pairs) { const placeholder = findDropdownPlaceholder(item.index); if (!placeholder) continue; placeholder.click(); await new Promise(resolve => setTimeout(resolve, 500)); const option = findDropdownOption(item.text); if (!option) { console.error(`Opção Dropdown não encontrada: "${item.text}"`); continue; } option.click(); successCount++; await new Promise(resolve => setTimeout(resolve, 500)); } }
             else if (kind === 'DRAGNDROP') { for (const item of pairs) { const targetEl = findDragDropTargetByIndex(item.index); if (!targetEl) { console.error(`[DRAGNDROP] Alvo no índice ${item.index} não foi encontrado.`); continue; } targetEl.click(); let keyToPress; try { await waitForElement('.keyboard-interaction-shortcuts', 2000); await new Promise(resolve => setTimeout(resolve, 100)); keyToPress = findDragDropKeyByText(item.text); } catch (e) { console.error(`[DRAGNDROP] Pop-up de opções não apareceu.`, e); targetEl.click(); continue; } if (!keyToPress) { console.error(`[DRAGNDROP] Não foi possível encontrar a tecla para "${item.text}"`); targetEl.click(); continue; } simulateKeyPress(keyToPress); successCount++; await new Promise(resolve => setTimeout(resolve, 600)); } }
             else if (kind === 'DND_IMAGE') {
-                // DND_IMAGE: Usa IDs dos targets para encontrar os botões corretos
+                // DND_IMAGE: Clica na opção primeiro, depois no alvo
                 const targetsData = JSON.parse(decodeURIComponent(dataset.targets));
 
                 for (const item of pairs) {
@@ -1667,26 +1667,26 @@ ${targetsInfo}`;
                         continue;
                     }
 
-                    // Encontra o botão pelo ID
-                    const targetEl = findDndImageTargetById(targetInfo.id);
-                    if (!targetEl) {
-                        console.error(`[DND_IMAGE] Alvo com ID "${targetInfo.id}" não foi encontrado.`);
-                        continue;
-                    }
-
-                    console.log(`[DND_IMAGE] Clicando no alvo ${item.index + 1} (ID: ${targetInfo.id})...`);
-                    targetEl.click();
-                    await new Promise(resolve => setTimeout(resolve, 400));
-
-                    // Encontra e clica na opção correta
+                    // 1. PRIMEIRO: Encontra e clica na opção para selecionar
                     const optionEl = findDndImageOptionByText(item.text);
                     if (!optionEl) {
                         console.error(`[DND_IMAGE] Opção "${item.text}" não encontrada.`);
                         continue;
                     }
 
-                    console.log(`[DND_IMAGE] Clicando na opção "${item.text}"...`);
+                    console.log(`[DND_IMAGE] 1. Clicando na opção "${item.text}"...`);
                     optionEl.click();
+                    await new Promise(resolve => setTimeout(resolve, 400));
+
+                    // 2. DEPOIS: Encontra e clica no alvo para soltar
+                    const targetEl = findDndImageTargetById(targetInfo.id);
+                    if (!targetEl) {
+                        console.error(`[DND_IMAGE] Alvo com ID "${targetInfo.id}" não foi encontrado.`);
+                        continue;
+                    }
+
+                    console.log(`[DND_IMAGE] 2. Clicando no alvo ${item.index + 1} (ID: ${targetInfo.id})...`);
+                    targetEl.click();
                     successCount++;
                     console.log(`[DND_IMAGE] ✅ Opção "${item.text}" colocada no alvo ${item.index + 1}`);
                     await new Promise(resolve => setTimeout(resolve, 600));
