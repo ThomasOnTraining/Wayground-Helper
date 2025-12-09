@@ -1354,9 +1354,8 @@ break;
 case 'DND_IMAGE':
 const dndImgOpts = JSON.parse(decodeURIComponent(dataset.options));
 const dndImgTgts = JSON.parse(decodeURIComponent(dataset.targets));
-                prompt = `Analise a seguinte pergunta de ARRASTAR E SOLTAR COM IMAGEM (DND_IMAGE). A imagem fornecida mostra áreas onde as opções devem ser soltas. Sua tarefa é ANALISAR A IMAGEM e determinar qual opção deve ser arrastada para cada área/alvo. Os alvos estão posicionados em coordenadas X/Y na imagem. Responda APENAS com uma lista numerada no formato: "1: [Texto da Opção]", "2: [Texto da Opção]", etc. onde 1 é o primeiro alvo, 2 é o segundo, etc.\n\nPergunta:\n"${decodeURIComponent(question)}"\n\nOpções Disponíveis:\n- ${dndImgOpts.join('\n- ')}\n\nTotal de alvos na imagem: ${dndImgTgts.length}`;
-                const targetsInfo = dndImgTgts.map((t, i) => `Alvo ${i + 1}: posição X=${Math.round(t.position.x)}, Y=${Math.round(t.position.y)}`).join('\n');
-                prompt = `Analise a seguinte pergunta de ARRASTAR E SOLTAR COM IMAGEM (DND_IMAGE). 
+const targetsInfo = dndImgTgts.map((t, i) => `Alvo ${i + 1}: posição X=${Math.round(t.position.x)}, Y=${Math.round(t.position.y)}`).join('\n');
+prompt = `Analise a seguinte pergunta de ARRASTAR E SOLTAR COM IMAGEM (DND_IMAGE). 
 
 CONTEXTO: A imagem fornecida mostra uma figura com áreas marcadas onde as opções devem ser soltas. Cada alvo tem coordenadas X/Y na imagem (X aumenta para direita, Y aumenta para baixo).
 
@@ -1600,8 +1599,8 @@ function waitForElement(selector, timeout = 2000) { return new Promise((resolve,
 function simulateKeyPress(key) { try { const keyCode = key.toString().charCodeAt(0); const event = new KeyboardEvent('keydown', { key: key.toString(), code: `Digit${key}`, keyCode: keyCode, which: keyCode, bubbles: true, cancelable: true }); document.body.dispatchEvent(event); } catch (e) { console.error("Falha ao simular tecla:", e); } }
 function findDragDropKeyByText(text) { const searchText = cleanElementText(text); const elements = document.querySelectorAll('.drag-option.option-highlight'); for (const el of elements) { const textElement = el.querySelector('.dnd-option-text'); if (textElement && cleanElementText(textElement.textContent) === searchText) { const keyElement = el.querySelector('.keyboard-interaction-shortcuts'); if (keyElement) { return keyElement.textContent.trim(); } } } console.warn(`[DRAGNDROP] Atalho de teclado para o texto "${text}" não foi encontrado.`); return null; }
 function findDragDropTargetByIndex(index) { const placeholders = document.querySelectorAll('button.drag-and-drop-blank, button.droppable-blank'); if (placeholders.length > index) { return placeholders[index]; } console.warn(`[DRAGNDROP] Alvo no índice ${index} não foi encontrado.`); return null; }
-function findDndImageTargetByIndex(index) { const targets = document.querySelectorAll('.dnd-image-target, .droppable-target, button[class*="dnd-image"], button[class*="drop-target"], .image-drop-zone button'); if (targets.length > index) { return targets[index]; } const fallbackTargets = document.querySelectorAll('button.drag-and-drop-blank, button.droppable-blank'); if (fallbackTargets.length > index) { return fallbackTargets[index]; } console.warn(`[DND_IMAGE] Alvo no índice ${index} não foi encontrado.`); return null; }
-function findDndImageKeyByText(text) { const searchText = cleanElementText(text); const elements = document.querySelectorAll('.drag-option.option-highlight, .dnd-option'); for (const el of elements) { const textElement = el.querySelector('.dnd-option-text, .resizeable, p'); if (textElement && cleanElementText(textElement.textContent) === searchText) { const keyElement = el.querySelector('.keyboard-interaction-shortcuts'); if (keyElement) { return keyElement.textContent.trim(); } } } console.warn(`[DND_IMAGE] Atalho de teclado para o texto "${text}" não foi encontrado.`); return null; }
+    function findDndImageTargetByIndex(index) { const targets = document.querySelectorAll('.dnd-image-target, .droppable-target, button[class*="dnd-image"], button[class*="drop-target"], .image-drop-zone button'); if (targets.length > index) { return targets[index]; } const fallbackTargets = document.querySelectorAll('button.drag-and-drop-blank, button.droppable-blank'); if (fallbackTargets.length > index) { return fallbackTargets[index]; } console.warn(`[DND_IMAGE] Alvo no índice ${index} não foi encontrado.`); return null; }
+    function findDndImageKeyByText(text) { const searchText = cleanElementText(text); const elements = document.querySelectorAll('.drag-option.option-highlight, .dnd-option'); for (const el of elements) { const textElement = el.querySelector('.dnd-option-text, .resizeable, p'); if (textElement && cleanElementText(textElement.textContent) === searchText) { const keyElement = el.querySelector('.keyboard-interaction-shortcuts'); if (keyElement) { return keyElement.textContent.trim(); } } } console.warn(`[DND_IMAGE] Atalho de teclado para o texto "${text}" não foi encontrado.`); return null; }
 
     // --- FUNÇÕES ESPECÍFICAS PARA DND_IMAGE (Drag & Drop com Imagem) ---
     function findDndImageOptionByText(text) {
@@ -1628,8 +1627,16 @@ function findDndImageKeyByText(text) { const searchText = cleanElementText(text)
             }
         }
         console.warn(`[DND_IMAGE] Opção arrastável "${text}" não encontrada.`);
-        return null;
-    }
+    function findDndImageTargetByIndex(index) {
+        // Seletor correto: button.droppable-blank.drag-and-drop-image-blank
+        const targets = document.querySelectorAll('button.droppable-blank.drag-and-drop-image-blank');
+        if (targets.length > index) { return targets[index]; }
+        // Fallback
+        const fallback = document.querySelectorAll('button.droppable-blank');
+        if (fallback.length > index) { return fallback[index]; }
+        console.warn(`[DND_IMAGE] Alvo no índice ${index} não foi encontrado.`);
+return null;
+}
 
     function findDndImageDropTarget(index) {
         // Seletores comuns para alvos de drop no Quizizz DND_IMAGE
@@ -1646,16 +1653,26 @@ function findDndImageKeyByText(text) { const searchText = cleanElementText(text)
             const targets = document.querySelectorAll(selector);
             if (targets.length > index) {
                 return targets[index];
-            }
-        }
+    // Encontra a opção arrastável pelo texto e retorna o ELEMENTO para clicar
+    function findDndImageOptionByText(text) {
+        const searchText = cleanElementText(text);
+        // Seletor correto: .drag-option-dnd-image com texto em .dnd-image-options-text p
+        const elements = document.querySelectorAll('.drag-option-dnd-image');
+        for (const el of elements) {
+            const textElement = el.querySelector('.dnd-image-options-text p, p');
+            if (textElement && cleanElementText(textElement.textContent) === searchText) {
+                return el; // Retorna o elemento para clicar
+}
+}
         // Fallback para seletores genéricos
         const fallbackTargets = document.querySelectorAll('button.drag-and-drop-blank, button.droppable-blank, .droppable');
         if (fallbackTargets.length > index) {
             return fallbackTargets[index];
         }
         console.warn(`[DND_IMAGE] Alvo de drop no índice ${index} não encontrado.`);
-        return null;
-    }
+        console.warn(`[DND_IMAGE] Opção "${text}" não foi encontrada.`);
+return null;
+}
 
     async function simulateDragAndDrop(sourceElement, targetElement) {
         try {
@@ -1701,7 +1718,7 @@ function findDndImageKeyByText(text) { const searchText = cleanElementText(text)
             return false;
         }
     }
-    // --- FIM FUNÇÕES DND_IMAGE ---
+// --- FIM FUNÇÕES DND_IMAGE ---
 function findClickableElementByText(text) { const searchText = text.trim(); const optionElements = document.querySelectorAll('.option-inner, .option'); for (const el of optionElements) { const p = el.querySelector('p'); if (p) { const elementText = cleanElementText(p.textContent); if (elementText && (searchText.startsWith(elementText) || elementText.startsWith(searchText))) { return el; } } } console.warn(`Elemento com texto "${text}" não foi encontrado.`); return null; }
 function findMatchElementByText(text, elementType) { const searchText = text.trim(); const elements = document.querySelectorAll('.match-order-option'); for (const el of elements) { const isDestination = el.classList.contains('is-drop-tile'); const isSource = el.classList.contains('is-option-tile'); if ((elementType === 'destination' && !isDestination) || (elementType === 'source' && !isSource)) continue; const textElement = el.querySelector('div[id="optionText"]'); if (textElement) { const elementText = cleanElementText(textElement.textContent); if (elementText && (searchText.startsWith(elementText) || elementText.startsWith(searchText))) { return el.querySelector('button.match-order-option-inner') || el; } } } console.warn(`[MATCH] Elemento com texto "${text}" (${elementType}) não foi encontrado.`); return null; }
 function findClassificationElementByText(text) { const searchText = text.trim(); const elements = document.querySelectorAll('.classification-group .cursor-grab'); for (const el of elements) { const textElement = el.querySelector('div[id="optionText"]'); if (textElement) { const elementText = cleanElementText(textElement.textContent); if (elementText && (searchText.startsWith(elementText) || elementText.startsWith(searchText))) { return el; } } } console.warn(`[CLASSIFICATION] Elemento de origem com texto "${text}" não foi encontrado.`); return null; }
@@ -1721,29 +1738,42 @@ if (kind === 'MATCH') { for (const pair of pairs) { const sourceEl = findMatchEl
 else if (kind === 'CLASSIFICATION') { const targets = JSON.parse(decodeURIComponent(dataset.targets)).map(t => cleanElementText(t)); if (!targets) throw new Error("Categorias de destino não encontradas no dataset."); for (const pair of pairs) { const sourceEl = findClassificationElementByText(pair.source); if (!sourceEl) { console.error(`Origim não encontrada: "${pair.source}"`); continue; } sourceEl.click(); await new Promise(resolve => setTimeout(resolve, 300)); const destIndex = targets.indexOf(pair.destination); if (destIndex === -1) { console.error(`Destino não encontrado no dataset: "${pair.destination}"`); sourceEl.click(); continue; } const dropzones = document.querySelectorAll('.glowing-dropzone'); const destEl = dropzones[destIndex]; if (!destEl) { console.error(`Dropzone no índice ${destIndex} não encontrado.`); sourceEl.click(); continue; } destEl.click(); successCount++; await new Promise(resolve => setTimeout(resolve, 600)); } }
 else if (kind === 'DROPDOWN') { for (const item of pairs) { const placeholder = findDropdownPlaceholder(item.index); if (!placeholder) continue; placeholder.click(); await new Promise(resolve => setTimeout(resolve, 500)); const option = findDropdownOption(item.text); if (!option) { console.error(`Opção Dropdown não encontrada: "${item.text}"`); continue; } option.click(); successCount++; await new Promise(resolve => setTimeout(resolve, 500)); } }
 else if (kind === 'DRAGNDROP') { for (const item of pairs) { const targetEl = findDragDropTargetByIndex(item.index); if (!targetEl) { console.error(`[DRAGNDROP] Alvo no índice ${item.index} não foi encontrado.`); continue; } targetEl.click(); let keyToPress; try { await waitForElement('.keyboard-interaction-shortcuts', 2000); await new Promise(resolve => setTimeout(resolve, 100)); keyToPress = findDragDropKeyByText(item.text); } catch (e) { console.error(`[DRAGNDROP] Pop-up de opções não apareceu.`, e); targetEl.click(); continue; } if (!keyToPress) { console.error(`[DRAGNDROP] Não foi possível encontrar a tecla para "${item.text}"`); targetEl.click(); continue; } simulateKeyPress(keyToPress); successCount++; await new Promise(resolve => setTimeout(resolve, 600)); } }
-            else if (kind === 'DND_IMAGE') { for (const item of pairs) { const targetEl = findDndImageTargetByIndex(item.index); if (!targetEl) { console.error(`[DND_IMAGE] Alvo no índice ${item.index} não foi encontrado.`); continue; } targetEl.click(); let keyToPress; try { await waitForElement('.keyboard-interaction-shortcuts', 2000); await new Promise(resolve => setTimeout(resolve, 100)); keyToPress = findDndImageKeyByText(item.text); } catch (e) { console.error(`[DND_IMAGE] Pop-up de opções não apareceu.`, e); targetEl.click(); continue; } if (!keyToPress) { console.error(`[DND_IMAGE] Não foi possível encontrar a tecla para "${item.text}"`); targetEl.click(); continue; } simulateKeyPress(keyToPress); successCount++; await new Promise(resolve => setTimeout(resolve, 600)); } }
-            else if (kind === 'DND_IMAGE') {
+else if (kind === 'DND_IMAGE') {
                 // DND_IMAGE: Encontra opção arrastável e alvo, e simula o drag & drop
-                for (const item of pairs) {
+                // DND_IMAGE: Clica no alvo, espera popup, clica na opção
+for (const item of pairs) {
                     const sourceEl = findDndImageOptionByText(item.text);
                     if (!sourceEl) {
                         console.error(`[DND_IMAGE] Opção arrastável "${item.text}" não encontrada.`);
                         continue;
                     }
                     const targetEl = findDndImageDropTarget(item.index);
-                    if (!targetEl) {
+                    const targetEl = findDndImageTargetByIndex(item.index);
+if (!targetEl) {
                         console.error(`[DND_IMAGE] Alvo no índice ${item.index} não encontrado.`);
-                        continue;
-                    }
+                        console.error(`[DND_IMAGE] Alvo no índice ${item.index} não foi encontrado.`);
+continue;
+}
                     // Simula o drag and drop
                     const success = await simulateDragAndDrop(sourceEl, targetEl);
                     if (success) {
                         successCount++;
                         console.log(`[DND_IMAGE] Opção "${item.text}" arrastada para alvo ${item.index + 1}`);
-                    }
-                    await new Promise(resolve => setTimeout(resolve, 600));
-                }
-            }
+                    targetEl.click();
+                    await new Promise(resolve => setTimeout(resolve, 300));
+
+                    // Espera o popup de opções aparecer e clica na opção correta
+                    const optionEl = findDndImageOptionByText(item.text);
+                    if (!optionEl) {
+                        console.error(`[DND_IMAGE] Opção "${item.text}" não encontrada.`);
+                        continue;
+}
+                    optionEl.click();
+                    successCount++;
+                    console.log(`[DND_IMAGE] Opção "${item.text}" colocada no alvo ${item.index + 1}`);
+await new Promise(resolve => setTimeout(resolve, 600));
+}
+}
 button.textContent = `Concluído (${successCount}/${pairs.length})`;
 if (successCount < pairs.length) button.style.backgroundColor = '#ffc107';
 } finally { if (panel && !isMasterAutoModeOn) panel.classList.remove('qia-minimized'); }
