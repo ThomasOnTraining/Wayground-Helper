@@ -1354,7 +1354,26 @@
             case 'DND_IMAGE':
                 const dndImgOpts = JSON.parse(decodeURIComponent(dataset.options));
                 const dndImgTgts = JSON.parse(decodeURIComponent(dataset.targets));
-                prompt = `Analise a seguinte pergunta de ARRASTAR E SOLTAR COM IMAGEM (DND_IMAGE). A imagem fornecida mostra áreas onde as opções devem ser soltas. Sua tarefa é ANALISAR A IMAGEM e determinar qual opção deve ser arrastada para cada área/alvo. Os alvos estão posicionados em coordenadas X/Y na imagem. Responda APENAS com uma lista numerada no formato: "1: [Texto da Opção]", "2: [Texto da Opção]", etc. onde 1 é o primeiro alvo, 2 é o segundo, etc.\n\nPergunta:\n"${decodeURIComponent(question)}"\n\nOpções Disponíveis:\n- ${dndImgOpts.join('\n- ')}\n\nTotal de alvos na imagem: ${dndImgTgts.length}`;
+                const targetsInfo = dndImgTgts.map((t, i) => `Alvo ${i + 1}: posição X=${Math.round(t.position.x)}, Y=${Math.round(t.position.y)}`).join('\n');
+                prompt = `Analise a seguinte pergunta de ARRASTAR E SOLTAR COM IMAGEM (DND_IMAGE). 
+
+CONTEXTO: A imagem fornecida mostra uma figura com áreas marcadas onde as opções devem ser soltas. Cada alvo tem coordenadas X/Y na imagem (X aumenta para direita, Y aumenta para baixo).
+
+SUA TAREFA: Analise a IMAGEM visualmente e determine qual opção de texto corresponde a cada área/alvo baseado no conteúdo visual da imagem e no contexto da pergunta.
+
+Responda APENAS com uma lista no formato:
+1: [Texto exato da Opção que vai no Alvo 1]
+2: [Texto exato da Opção que vai no Alvo 2]
+etc.
+
+Pergunta:
+"${decodeURIComponent(question)}"
+
+Opções Disponíveis:
+${dndImgOpts.map((opt, i) => `- ${opt}`).join('\n')}
+
+Alvos na imagem (coordenadas):
+${targetsInfo}`;
                 break;
         }
         return prompt;
@@ -1582,6 +1601,106 @@
     function findDragDropTargetByIndex(index) { const placeholders = document.querySelectorAll('button.drag-and-drop-blank, button.droppable-blank'); if (placeholders.length > index) { return placeholders[index]; } console.warn(`[DRAGNDROP] Alvo no índice ${index} não foi encontrado.`); return null; }
     function findDndImageTargetByIndex(index) { const targets = document.querySelectorAll('.dnd-image-target, .droppable-target, button[class*="dnd-image"], button[class*="drop-target"], .image-drop-zone button'); if (targets.length > index) { return targets[index]; } const fallbackTargets = document.querySelectorAll('button.drag-and-drop-blank, button.droppable-blank'); if (fallbackTargets.length > index) { return fallbackTargets[index]; } console.warn(`[DND_IMAGE] Alvo no índice ${index} não foi encontrado.`); return null; }
     function findDndImageKeyByText(text) { const searchText = cleanElementText(text); const elements = document.querySelectorAll('.drag-option.option-highlight, .dnd-option'); for (const el of elements) { const textElement = el.querySelector('.dnd-option-text, .resizeable, p'); if (textElement && cleanElementText(textElement.textContent) === searchText) { const keyElement = el.querySelector('.keyboard-interaction-shortcuts'); if (keyElement) { return keyElement.textContent.trim(); } } } console.warn(`[DND_IMAGE] Atalho de teclado para o texto "${text}" não foi encontrado.`); return null; }
+
+    // --- FUNÇÕES ESPECÍFICAS PARA DND_IMAGE (Drag & Drop com Imagem) ---
+    function findDndImageOptionByText(text) {
+        const searchText = cleanElementText(text);
+        // Seletores comuns para opções arrastáveis no Quizizz DND_IMAGE
+        const selectors = [
+            '.dnd-option',
+            '.drag-option',
+            '.draggable-option',
+            '[draggable="true"]',
+            '.option-draggable',
+            '.dnd-image-option',
+            'button.option',
+            '.options-container button',
+            '.drag-container .option'
+        ];
+        for (const selector of selectors) {
+            const elements = document.querySelectorAll(selector);
+            for (const el of elements) {
+                const textEl = el.querySelector('p, .resizeable, .dnd-option-text, .option-text') || el;
+                if (textEl && cleanElementText(textEl.textContent) === searchText) {
+                    return el;
+                }
+            }
+        }
+        console.warn(`[DND_IMAGE] Opção arrastável "${text}" não encontrada.`);
+        return null;
+    }
+
+    function findDndImageDropTarget(index) {
+        // Seletores comuns para alvos de drop no Quizizz DND_IMAGE
+        const selectors = [
+            '.drop-target',
+            '.droppable-zone',
+            '.dnd-drop-area',
+            '.image-drop-target',
+            '[data-droppable="true"]',
+            '.drop-zone',
+            '.dnd-target'
+        ];
+        for (const selector of selectors) {
+            const targets = document.querySelectorAll(selector);
+            if (targets.length > index) {
+                return targets[index];
+            }
+        }
+        // Fallback para seletores genéricos
+        const fallbackTargets = document.querySelectorAll('button.drag-and-drop-blank, button.droppable-blank, .droppable');
+        if (fallbackTargets.length > index) {
+            return fallbackTargets[index];
+        }
+        console.warn(`[DND_IMAGE] Alvo de drop no índice ${index} não encontrado.`);
+        return null;
+    }
+
+    async function simulateDragAndDrop(sourceElement, targetElement) {
+        try {
+            const sourceRect = sourceElement.getBoundingClientRect();
+            const targetRect = targetElement.getBoundingClientRect();
+
+            const sourceX = sourceRect.left + sourceRect.width / 2;
+            const sourceY = sourceRect.top + sourceRect.height / 2;
+            const targetX = targetRect.left + targetRect.width / 2;
+            const targetY = targetRect.top + targetRect.height / 2;
+
+            // Simula eventos de drag & drop
+            const dataTransfer = new DataTransfer();
+
+            // Mouse down no source
+            sourceElement.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: sourceX, clientY: sourceY }));
+            await new Promise(r => setTimeout(r, 50));
+
+            // Drag start
+            sourceElement.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer, clientX: sourceX, clientY: sourceY }));
+            await new Promise(r => setTimeout(r, 50));
+
+            // Drag over target
+            targetElement.dispatchEvent(new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer, clientX: targetX, clientY: targetY }));
+            targetElement.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer, clientX: targetX, clientY: targetY }));
+            await new Promise(r => setTimeout(r, 50));
+
+            // Drop
+            targetElement.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer, clientX: targetX, clientY: targetY }));
+            await new Promise(r => setTimeout(r, 50));
+
+            // Drag end
+            sourceElement.dispatchEvent(new DragEvent('dragend', { bubbles: true, cancelable: true, dataTransfer }));
+
+            // Fallback: tenta clicar se o drag não funcionou
+            sourceElement.click();
+            await new Promise(r => setTimeout(r, 100));
+            targetElement.click();
+
+            return true;
+        } catch (e) {
+            console.error('[DND_IMAGE] Erro ao simular drag and drop:', e);
+            return false;
+        }
+    }
+    // --- FIM FUNÇÕES DND_IMAGE ---
     function findClickableElementByText(text) { const searchText = text.trim(); const optionElements = document.querySelectorAll('.option-inner, .option'); for (const el of optionElements) { const p = el.querySelector('p'); if (p) { const elementText = cleanElementText(p.textContent); if (elementText && (searchText.startsWith(elementText) || elementText.startsWith(searchText))) { return el; } } } console.warn(`Elemento com texto "${text}" não foi encontrado.`); return null; }
     function findMatchElementByText(text, elementType) { const searchText = text.trim(); const elements = document.querySelectorAll('.match-order-option'); for (const el of elements) { const isDestination = el.classList.contains('is-drop-tile'); const isSource = el.classList.contains('is-option-tile'); if ((elementType === 'destination' && !isDestination) || (elementType === 'source' && !isSource)) continue; const textElement = el.querySelector('div[id="optionText"]'); if (textElement) { const elementText = cleanElementText(textElement.textContent); if (elementText && (searchText.startsWith(elementText) || elementText.startsWith(searchText))) { return el.querySelector('button.match-order-option-inner') || el; } } } console.warn(`[MATCH] Elemento com texto "${text}" (${elementType}) não foi encontrado.`); return null; }
     function findClassificationElementByText(text) { const searchText = text.trim(); const elements = document.querySelectorAll('.classification-group .cursor-grab'); for (const el of elements) { const textElement = el.querySelector('div[id="optionText"]'); if (textElement) { const elementText = cleanElementText(textElement.textContent); if (elementText && (searchText.startsWith(elementText) || elementText.startsWith(searchText))) { return el; } } } console.warn(`[CLASSIFICATION] Elemento de origem com texto "${text}" não foi encontrado.`); return null; }
@@ -1601,7 +1720,28 @@
             else if (kind === 'CLASSIFICATION') { const targets = JSON.parse(decodeURIComponent(dataset.targets)).map(t => cleanElementText(t)); if (!targets) throw new Error("Categorias de destino não encontradas no dataset."); for (const pair of pairs) { const sourceEl = findClassificationElementByText(pair.source); if (!sourceEl) { console.error(`Origim não encontrada: "${pair.source}"`); continue; } sourceEl.click(); await new Promise(resolve => setTimeout(resolve, 300)); const destIndex = targets.indexOf(pair.destination); if (destIndex === -1) { console.error(`Destino não encontrado no dataset: "${pair.destination}"`); sourceEl.click(); continue; } const dropzones = document.querySelectorAll('.glowing-dropzone'); const destEl = dropzones[destIndex]; if (!destEl) { console.error(`Dropzone no índice ${destIndex} não encontrado.`); sourceEl.click(); continue; } destEl.click(); successCount++; await new Promise(resolve => setTimeout(resolve, 600)); } }
             else if (kind === 'DROPDOWN') { for (const item of pairs) { const placeholder = findDropdownPlaceholder(item.index); if (!placeholder) continue; placeholder.click(); await new Promise(resolve => setTimeout(resolve, 500)); const option = findDropdownOption(item.text); if (!option) { console.error(`Opção Dropdown não encontrada: "${item.text}"`); continue; } option.click(); successCount++; await new Promise(resolve => setTimeout(resolve, 500)); } }
             else if (kind === 'DRAGNDROP') { for (const item of pairs) { const targetEl = findDragDropTargetByIndex(item.index); if (!targetEl) { console.error(`[DRAGNDROP] Alvo no índice ${item.index} não foi encontrado.`); continue; } targetEl.click(); let keyToPress; try { await waitForElement('.keyboard-interaction-shortcuts', 2000); await new Promise(resolve => setTimeout(resolve, 100)); keyToPress = findDragDropKeyByText(item.text); } catch (e) { console.error(`[DRAGNDROP] Pop-up de opções não apareceu.`, e); targetEl.click(); continue; } if (!keyToPress) { console.error(`[DRAGNDROP] Não foi possível encontrar a tecla para "${item.text}"`); targetEl.click(); continue; } simulateKeyPress(keyToPress); successCount++; await new Promise(resolve => setTimeout(resolve, 600)); } }
-            else if (kind === 'DND_IMAGE') { for (const item of pairs) { const targetEl = findDndImageTargetByIndex(item.index); if (!targetEl) { console.error(`[DND_IMAGE] Alvo no índice ${item.index} não foi encontrado.`); continue; } targetEl.click(); let keyToPress; try { await waitForElement('.keyboard-interaction-shortcuts', 2000); await new Promise(resolve => setTimeout(resolve, 100)); keyToPress = findDndImageKeyByText(item.text); } catch (e) { console.error(`[DND_IMAGE] Pop-up de opções não apareceu.`, e); targetEl.click(); continue; } if (!keyToPress) { console.error(`[DND_IMAGE] Não foi possível encontrar a tecla para "${item.text}"`); targetEl.click(); continue; } simulateKeyPress(keyToPress); successCount++; await new Promise(resolve => setTimeout(resolve, 600)); } }
+            else if (kind === 'DND_IMAGE') {
+                // DND_IMAGE: Encontra opção arrastável e alvo, e simula o drag & drop
+                for (const item of pairs) {
+                    const sourceEl = findDndImageOptionByText(item.text);
+                    if (!sourceEl) {
+                        console.error(`[DND_IMAGE] Opção arrastável "${item.text}" não encontrada.`);
+                        continue;
+                    }
+                    const targetEl = findDndImageDropTarget(item.index);
+                    if (!targetEl) {
+                        console.error(`[DND_IMAGE] Alvo no índice ${item.index} não encontrado.`);
+                        continue;
+                    }
+                    // Simula o drag and drop
+                    const success = await simulateDragAndDrop(sourceEl, targetEl);
+                    if (success) {
+                        successCount++;
+                        console.log(`[DND_IMAGE] Opção "${item.text}" arrastada para alvo ${item.index + 1}`);
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 600));
+                }
+            }
             button.textContent = `Concluído (${successCount}/${pairs.length})`;
             if (successCount < pairs.length) button.style.backgroundColor = '#ffc107';
         } finally { if (panel && !isMasterAutoModeOn) panel.classList.remove('qia-minimized'); }
