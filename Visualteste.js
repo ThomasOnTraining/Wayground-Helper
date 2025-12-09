@@ -1686,25 +1686,25 @@ ${targetsInfo}`;
                     }
 
                     // 1. Clica no alvo para abrir as opções
-                    const targetEl = findDndImageTargetById(targetInfo.id);
-                    if (!targetEl) {
+                    const dndTargetEl = findDndImageTargetById(targetInfo.id);
+                    if (!dndTargetEl) {
                         console.error(`[DND_IMAGE] Alvo com ID "${targetInfo.id}" não foi encontrado.`);
                         continue;
                     }
 
                     console.log(`[DND_IMAGE] 1. Clicando no alvo ${item.index + 1} (ID: ${targetInfo.id})...`);
-                    targetEl.click();
+                    dndTargetEl.click();
                     await new Promise(resolve => setTimeout(resolve, 300));
 
                     // 2. Encontra a tecla do atalho e pressiona
-                    const keyToPress = findDndImageKeyByText(item.text);
-                    if (!keyToPress) {
+                    const dndKeyToPress = findDndImageKeyByText(item.text);
+                    if (!dndKeyToPress) {
                         console.error(`[DND_IMAGE] Tecla para "${item.text}" não encontrada.`);
                         continue;
                     }
 
-                    console.log(`[DND_IMAGE] 2. Pressionando tecla "${keyToPress}" para "${item.text}"...`);
-                    simulateKeyPress(keyToPress);
+                    console.log(`[DND_IMAGE] 2. Pressionando tecla "${dndKeyToPress}" para "${item.text}"...`);
+                    simulateKeyPress(dndKeyToPress);
                     successCount++;
                     console.log(`[DND_IMAGE] ✅ Opção "${item.text}" colocada no alvo ${item.index + 1}`);
                     await new Promise(resolve => setTimeout(resolve, 600));
