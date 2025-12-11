@@ -108,8 +108,12 @@
             if (masterInterval) clearInterval(masterInterval);
             masterInterval = null;
             const autoBtn = document.getElementById('qia-auto-mode-btn');
-            if (autoBtn) autoBtn.classList.remove('qia-auto-mode-on');
+            if (autoBtn) {
+                autoBtn.classList.remove('qia-active');
+                autoBtn.innerHTML = '🚀 Auto';
+            }
             startQuestionObserver();
+            updateStatusIndicator(false, 'Pronto');
         }
     }
 
@@ -176,6 +180,10 @@
                 color: var(--qia-text-primary);
                 transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 transform-origin: top right;
+            }
+
+            #qia-panel.qia-dragging {
+                transition: none !important;
             }
             
             #qia-panel.qia-minimized {
@@ -915,10 +923,13 @@
 
         const dragStart = (e) => {
             if (e.button !== 0) return;
+            e.preventDefault();
             isDragging = true;
+            qiaPanel.classList.add('qia-dragging');
             wasDragging = false;
             offset.x = e.clientX - qiaPanel.offsetLeft;
             offset.y = e.clientY - qiaPanel.offsetTop;
+            document.body.style.userSelect = 'none';
         };
 
         header.addEventListener('mousedown', dragStart);
@@ -933,36 +944,47 @@
             }
         });
 
-        document.addEventListener('mouseup', () => { isDragging = false; });
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            qiaPanel.classList.remove('qia-dragging');
+            document.body.style.userSelect = '';
+        });
 
         // Minimize/Restore
+        // Minimize/Restore
         document.getElementById('qia-minimize-btn').addEventListener('click', () => {
+            const rect = qiaPanel.getBoundingClientRect();
+            // Anchor to RIGHT: New Left = Current Right - Minimized Width (56px)
+            const newLeft = rect.right - 56;
+            qiaPanel.style.left = `${newLeft}px`;
+            qiaPanel.style.right = 'auto'; // Ensure we switch to left-positioning
+            qiaPanel.style.top = `${rect.top}px`;
             qiaPanel.classList.add('qia-minimized');
         });
 
         restoreBtn.addEventListener('click', () => {
             if (!wasDragging) {
-                const vw = window.innerWidth;
-                const vh = window.innerHeight;
+                const rect = qiaPanel.getBoundingClientRect();
                 const fullPanelWidth = 400;
-                const minPanelHeight = 100;
+
+                // Anchor to RIGHT: New Left = Current Right - Full Width
+                let newLeft = rect.right - fullPanelWidth;
+
+                // Bounds check immediately to prevent off-screen
+                const vw = window.innerWidth;
                 const padding = 20;
-                let rect = qiaPanel.getBoundingClientRect();
 
-                if (rect.left + fullPanelWidth + padding > vw) {
-                    qiaPanel.style.left = (vw - fullPanelWidth - padding) + 'px';
-                }
-                if (rect.left < padding) {
-                    qiaPanel.style.left = padding + 'px';
-                }
-                if (rect.top < padding) {
-                    qiaPanel.style.top = padding + 'px';
-                }
-                if (rect.top + minPanelHeight + padding > vh) {
-                    qiaPanel.style.top = (vh - minPanelHeight - padding) + 'px';
-                }
+                if (newLeft < padding) newLeft = padding;
+                if (newLeft + fullPanelWidth > vw - padding) newLeft = vw - fullPanelWidth - padding;
 
+                qiaPanel.style.left = `${newLeft}px`;
                 qiaPanel.classList.remove('qia-minimized');
+
+                // Ensure Y is also safe
+                const vh = window.innerHeight;
+                const minPanelHeight = 100;
+                if (rect.top < padding) qiaPanel.style.top = `${padding}px`;
+                if (rect.top + minPanelHeight > vh - padding) qiaPanel.style.top = `${vh - minPanelHeight - padding}px`;
             }
             wasDragging = false;
         });
